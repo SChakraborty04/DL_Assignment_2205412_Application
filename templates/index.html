@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CIFAR-10 Dual Classifier</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f4f7f6;
+            margin: 0;
+            line-height: 1.6;
+        }
+        #container {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 500px;
+        }
+        h1 {
+            color: #333;
+            font-weight: 700;
+        }
+        #image-preview {
+            width: 200px;
+            height: 200px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            margin: 1.5rem auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #aaa;
+            font-weight: 500;
+            overflow: hidden;
+            background-color: #fafafa;
+        }
+        #image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .file-label {
+            display: inline-block;
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s ease;
+        }
+        .file-label:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+        }
+        #result p {
+            margin: 0.5rem 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        #cnn-result {
+            color: #28a745;
+        }
+        #vit-result {
+            color: #17a2b8;
+        }
+        #status-text {
+            color: #6c757d;
+            font-weight: 500;
+        }
+        #error-text {
+            color: #dc3545;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <h1>CIFAR-10 Classifier</h1>
+        <p>Upload an image to get predictions from both CNN and ViT models.</p>
+
+        <div id="image-preview">
+            <span>Image Preview</span>
+        </div>
+
+        <label for="file-upload" class="file-label">
+            Choose an Image
+        </label>
+        <input id="file-upload" type="file" accept="image/*" onchange="handleImageUpload(event)">
+        
+        <div id="result">
+            <p id="status-text">Awaiting image...</p>
+            <p id="cnn-result" style="display:none;"></p>
+            <p id="vit-result" style="display:none;"></p>
+            <p id="error-text" style="display:none;"></p>
+        </div>
+    </div>
+
+    <script>
+        const preview = document.getElementById('image-preview');
+        const previewText = preview.querySelector('span');
+        const cnnResult = document.getElementById('cnn-result');
+        const vitResult = document.getElementById('vit-result');
+        const statusText = document.getElementById('status-text');
+        const errorText = document.getElementById('error-text');
+        let fileInput = document.getElementById('file-upload');
+
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.innerHTML = `<img src="${e.target.result}" alt="Image preview">`;
+            }
+            reader.readAsDataURL(file);
+
+            // Clear old results and show loading
+            statusText.textContent = "Classifying...";
+            statusText.style.display = 'block';
+            cnnResult.style.display = 'none';
+            vitResult.style.display = 'none';
+            errorText.style.display = 'none';
+
+            // Send to backend
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                statusText.style.display = 'none';
+                if (data.cnn_prediction && data.vit_prediction) {
+                    const cnn_pred = data.cnn_prediction.charAt(0).toUpperCase() + data.cnn_prediction.slice(1);
+                    const vit_pred = data.vit_prediction.charAt(0).toUpperCase() + data.vit_prediction.slice(1);
+                    
+                    cnnResult.textContent = `CNN Prediction: ${cnn_pred}`;
+                    vitResult.textContent = `ViT Prediction: ${vit_pred}`;
+                    
+                    cnnResult.style.display = 'block';
+                    vitResult.style.display = 'block';
+
+                } else {
+                    errorText.textContent = "Error: " + (data.error || "Prediction failed.");
+                    errorText.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                statusText.style.display = 'none';
+                errorText.textContent = "Error: Prediction failed. Check server logs.";
+                errorText.style.display = 'block';
+            });
+        }
+    </script>
+</body>
+</html>
