@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CIFAR-10 Dual Classifier</title>
+    <title>CIFAR-10 Classifier</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -65,25 +65,12 @@
         }
         #result {
             margin-top: 1.5rem;
-            padding: 1rem;
-            border-radius: 8px;
-            background-color: #f8f9fa;
-            border: 1px solid #e9ecef;
-        }
-        #result p {
-            margin: 0.5rem 0;
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
-        #cnn-result {
+            font-size: 1.5rem;
+            font-weight: 700;
             color: #28a745;
         }
-        #vit-result {
-            color: #17a2b8;
-        }
-        #status-text {
+        #result.loading {
             color: #6c757d;
-            font-weight: 500;
         }
         #error-text {
             color: #dc3545;
@@ -93,8 +80,8 @@
 </head>
 <body>
     <div id="container">
-        <h1>CIFAR-10 Classifier</h1>
-        <p>Upload an image to get predictions from both CNN and ViT models.</p>
+        <h1>CIFAR-10 Classifier (CNN)</h1>
+        <p>Upload an image to get a prediction.</p>
 
         <div id="image-preview">
             <span>Image Preview</span>
@@ -105,20 +92,13 @@
         </label>
         <input id="file-upload" type="file" accept="image/*" onchange="handleImageUpload(event)">
         
-        <div id="result">
-            <p id="status-text">Awaiting image...</p>
-            <p id="cnn-result" style="display:none;"></p>
-            <p id="vit-result" style="display:none;"></p>
-            <p id="error-text" style="display:none;"></p>
-        </div>
+        <h2 id="result">Prediction: ---</h2>
+        <p id="error-text" style="display:none;"></p>
     </div>
 
     <script>
         const preview = document.getElementById('image-preview');
-        const previewText = preview.querySelector('span');
-        const cnnResult = document.getElementById('cnn-result');
-        const vitResult = document.getElementById('vit-result');
-        const statusText = document.getElementById('status-text');
+        const resultText = document.getElementById('result');
         const errorText = document.getElementById('error-text');
         let fileInput = document.getElementById('file-upload');
 
@@ -134,11 +114,10 @@
             reader.readAsDataURL(file);
 
             // Clear old results and show loading
-            statusText.textContent = "Classifying...";
-            statusText.style.display = 'block';
-            cnnResult.style.display = 'none';
-            vitResult.style.display = 'none';
+            resultText.textContent = "Classifying...";
+            resultText.classList.add('loading');
             errorText.style.display = 'none';
+            resultText.style.color = '#6c757d';
 
             // Send to backend
             const formData = new FormData();
@@ -150,25 +129,21 @@
             })
             .then(response => response.json())
             .then(data => {
-                statusText.style.display = 'none';
-                if (data.cnn_prediction && data.vit_prediction) {
-                    const cnn_pred = data.cnn_prediction.charAt(0).toUpperCase() + data.cnn_prediction.slice(1);
-                    const vit_pred = data.vit_prediction.charAt(0).toUpperCase() + data.vit_prediction.slice(1);
-                    
-                    cnnResult.textContent = `CNN Prediction: ${cnn_pred}`;
-                    vitResult.textContent = `ViT Prediction: ${vit_pred}`;
-                    
-                    cnnResult.style.display = 'block';
-                    vitResult.style.display = 'block';
-
+                resultText.classList.remove('loading');
+                if (data.prediction) {
+                    const prediction = data.prediction.charAt(0).toUpperCase() + data.prediction.slice(1);
+                    resultText.textContent = `Prediction: ${prediction}`;
+                    resultText.style.color = '#28a745';
                 } else {
+                    resultText.textContent = "";
                     errorText.textContent = "Error: " + (data.error || "Prediction failed.");
                     errorText.style.display = 'block';
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                statusText.style.display = 'none';
+                resultText.classList.remove('loading');
+                resultText.textContent = "";
                 errorText.textContent = "Error: Prediction failed. Check server logs.";
                 errorText.style.display = 'block';
             });
